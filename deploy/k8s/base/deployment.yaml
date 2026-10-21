@@ -49,6 +49,11 @@ spec:
             #   kubectl -n quickfeed create secret generic quickfeed-env --from-env-file=.env
             - secretRef:
                 name: quickfeed-env
+          env:
+            # The GitHub App private key is a file from the Secret quickfeed-app-key
+            # (see the volume "app-key" below).
+            - name: QUICKFEED_APP_KEY
+              value: /secrets/app-key.pem
           ports:
             - name: https
               containerPort: 443
@@ -60,6 +65,9 @@ spec:
             - name: data
               mountPath: /app/logs
               subPath: logs
+            - name: app-key
+              mountPath: /secrets
+              readOnly: true
           readinessProbe:
             tcpSocket:
               port: https
@@ -79,3 +87,7 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: quickfeed-data
+        - name: app-key
+          secret:
+            secretName: quickfeed-app-key
+            defaultMode: 0440
