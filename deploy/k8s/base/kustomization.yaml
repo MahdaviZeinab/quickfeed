@@ -13,6 +13,7 @@ resources:
   - data-pvc.yaml
   - deployment.yaml
   - service.yaml
+  - ingressroutetcp.yaml
 
 images:
   # Set the tag to the commit SHA of the image built by .github/workflows/image.yml:
