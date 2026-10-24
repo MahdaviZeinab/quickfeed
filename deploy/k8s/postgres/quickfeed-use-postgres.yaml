@@ -8,9 +8,12 @@ spec:
     spec:
       initContainers:
         # Wait until the database accepts connections before starting QuickFeed.
+        # "-U postgres" is needed: this pod runs as uid 10001, which has no user
+        # name in the postgres image, so pg_isready gives up without it ("no attempt").
+        # pg_isready does not log in, so any user name works here.
         - name: wait-for-postgres
           image: postgres:17.6
-          command: ["sh", "-c", "until pg_isready -h postgres -p 5432; do echo waiting for postgres; sleep 2; done"]
+          command: ["sh", "-c", "until pg_isready -h postgres -p 5432 -U postgres; do echo waiting for postgres; sleep 2; done"]
       containers:
         - name: quickfeed
           env:
