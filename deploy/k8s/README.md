@@ -12,7 +12,6 @@ There are two steps, as Hein asked:
 | Where the data is | `qf.db` on a persistent volume, mounted at `/data` | a PostgreSQL server (StatefulSet) with its own persistent volume |
 | QuickFeed pods | exactly 1 | 1 now; more is possible later (see "Scaling") |
 | Upgrade | short downtime (old pod stops, new pod starts) | short downtime now; rolling upgrades possible later |
-| Backups | volume snapshots (manual) | automatic nightly `pg_dump` (CronJob), kept 14 days |
 | Code changes | none | small, in `database/` (see "Code changes") |
 
 ```
@@ -26,8 +25,6 @@ deploy/k8s/
 │   ├── postgres-statefulset.yaml   PostgreSQL 17 with its own volume
 │   ├── postgres-service.yaml       address postgres:5432, inside the cluster only
 │   ├── quickfeed-use-postgres.yaml sets QUICKFEED_DATABASE_URL on QuickFeed
-│   ├── backup-cronjob.yaml         nightly pg_dump
-│   ├── backup-pvc.yaml             separate volume for the dumps
 │   └── postgres.env.example        database name, user, password (copy to postgres.env)
 └── jobs/
     └── migrate-sqlite-to-postgres.yaml  one-time copy of the data from step 1 to step 2
@@ -149,34 +146,6 @@ kubectl -n quickfeed scale deploy/quickfeed --replicas=1
 
 Note: if QuickFeed was started on PostgreSQL before the copy, it has already
 created (empty) tables, and the copy refuses to run if any of them has rows.
-
-### Backups and restore
-
-`backup-cronjob.yaml` runs `pg_dump` every night at 03:15 and writes
-`quickfeed-<date>-<time>.dump` to the `postgres-backups` volume. Dumps older
-than 14 days are deleted.
-
-```sh
-# Make a backup now (the log shows the file name and size)
-kubectl -n quickfeed create job --from=cronjob/postgres-backup backup-now
-kubectl -n quickfeed logs job/backup-now
-
-# Copy a backup out of the cluster (keep a copy outside the cluster, too)
-kubectl -n quickfeed exec -i postgres-0 -- sh -c 'pg_dump -U "$POSTGRES_USER" -Fc "$POSTGRES_DB"' > quickfeed.dump
-```
-
-Restore (replaces the current data; stop QuickFeed first):
-
-```sh
-kubectl -n quickfeed scale deploy/quickfeed --replicas=0
-kubectl -n quickfeed exec -i postgres-0 -- sh -c \
-  'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --no-owner' < quickfeed.dump
-kubectl -n quickfeed scale deploy/quickfeed --replicas=1
-```
-
-The backup volume is a separate Cinder volume, so a backup survives if the
-database volume is damaged or deleted. It does not survive if the whole
-OpenStack project is lost; that is why a copy should also be kept outside.
 
 ## Checking that the data survives (for the demo / report)
 
