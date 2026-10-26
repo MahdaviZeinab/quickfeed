@@ -13,8 +13,6 @@ resources:
   - ../base
   - postgres-statefulset.yaml
   - postgres-service.yaml
-  - backup-pvc.yaml
-  - backup-cronjob.yaml
 
 patches:
   - path: quickfeed-use-postgres.yaml
