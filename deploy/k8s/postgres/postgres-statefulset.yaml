@@ -14,7 +14,7 @@ metadata:
 spec:
   serviceName: postgres
   # One database server. Replication is not needed for QuickFeed and adds
-  # a lot of complexity; backups are made by backup-cronjob.yaml instead.
+  # a lot of complexity.
   replicas: 1
   selector:
     matchLabels:
