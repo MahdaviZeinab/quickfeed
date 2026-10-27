@@ -1,5 +1,4 @@
 # Persistent volume for everything QuickFeed must keep across restarts and upgrades:
-#   /data/qf.db                     the SQLite database (step 1 only)
 #   /data/.config/quickfeed/certs   Let's Encrypt certificates (avoids rate limits on restart)
 #   /data/logs                      course logs
 #
