@@ -1,33 +1,32 @@
 # QuickFeed on Kubernetes: the database
 
-This folder runs QuickFeed on the UiS Kubernetes cluster with a database that
-**is not stored in the pod**. Data survives pod restarts, crashes, image
-upgrades and node failures.
+This folder runs QuickFeed on the UiS Kubernetes cluster with a PostgreSQL
+database that **is not stored in the pod**. Data survives pod restarts, crashes,
+image upgrades and node failures.
 
-There are two steps, as Hein asked:
+QuickFeed uses only PostgreSQL. The one-time Job in `jobs/` copies an existing
+SQLite database (`qf.db`) into PostgreSQL (see "Moving from SQLite to PostgreSQL").
 
-| | Step 1: SQLite on a volume | Step 2: PostgreSQL in the cluster |
-|---|---|---|
-| Folder | `base/` | `postgres/` (builds on `base/`) |
-| Where the data is | `qf.db` on a persistent volume, mounted at `/data` | a PostgreSQL server (StatefulSet) with its own persistent volume |
-| QuickFeed pods | exactly 1 | 1 now; more is possible later (see "Scaling") |
-| Upgrade | short downtime (old pod stops, new pod starts) | short downtime now; rolling upgrades possible later |
-| Code changes | none | small, in `database/` (see "Code changes") |
+| | PostgreSQL in the cluster |
+|---|---|
+| Folder | `base/` |
+| Where the data is | a PostgreSQL server (StatefulSet) with its own persistent volume |
+| QuickFeed pods | 1 now; more is possible later (see "Scaling") |
+| Upgrade | short downtime now; rolling upgrades possible later |
+| Code changes | small, in `database/` (see "Code changes") |
 
 ```
 deploy/k8s/
-├── base/                       Step 1
+├── base/
 │   ├── namespace.yaml
-│   ├── data-pvc.yaml           volume for qf.db, Let's Encrypt certificates and logs
-│   ├── deployment.yaml         QuickFeed: 1 replica, strategy Recreate, volume at /data
-│   └── service.yaml
-├── postgres/                   Step 2 (adds to base/)
+│   ├── data-pvc.yaml               volume for Let's Encrypt certificates and logs
+│   ├── deployment.yaml             QuickFeed: 1 replica, strategy Recreate, waits for PostgreSQL
+│   ├── service.yaml
 │   ├── postgres-statefulset.yaml   PostgreSQL 17 with its own volume
 │   ├── postgres-service.yaml       address postgres:5432, inside the cluster only
-│   ├── quickfeed-use-postgres.yaml sets QUICKFEED_DATABASE_URL on QuickFeed
 │   └── postgres.env.example        database name, user, password (copy to postgres.env)
 └── jobs/
-    └── migrate-sqlite-to-postgres.yaml  one-time copy of the data from step 1 to step 2
+    └── migrate-sqlite-to-postgres.yaml  one-time copy of a SQLite database (qf.db) into PostgreSQL
 ```
 
 ## Why the data survives
