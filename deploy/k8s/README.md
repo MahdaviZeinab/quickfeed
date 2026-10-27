@@ -1,33 +1,32 @@
 # QuickFeed on Kubernetes: the database
 
-This folder runs QuickFeed on the UiS Kubernetes cluster with a database that
-**is not stored in the pod**. Data survives pod restarts, crashes, image
-upgrades and node failures.
+This folder runs QuickFeed on the UiS Kubernetes cluster with a PostgreSQL
+database that **is not stored in the pod**. Data survives pod restarts, crashes,
+image upgrades and node failures.
 
-There are two steps, as Hein asked:
+QuickFeed uses only PostgreSQL. The one-time Job in `jobs/` copies an existing
+SQLite database (`qf.db`) into PostgreSQL (see "Moving from SQLite to PostgreSQL").
 
-| | Step 1: SQLite on a volume | Step 2: PostgreSQL in the cluster |
-|---|---|---|
-| Folder | `base/` | `postgres/` (builds on `base/`) |
-| Where the data is | `qf.db` on a persistent volume, mounted at `/data` | a PostgreSQL server (StatefulSet) with its own persistent volume |
-| QuickFeed pods | exactly 1 | 1 now; more is possible later (see "Scaling") |
-| Upgrade | short downtime (old pod stops, new pod starts) | short downtime now; rolling upgrades possible later |
-| Code changes | none | small, in `database/` (see "Code changes") |
+| | PostgreSQL in the cluster |
+|---|---|
+| Folder | `base/` |
+| Where the data is | a PostgreSQL server (StatefulSet) with its own persistent volume |
+| QuickFeed pods | 1 now; more is possible later (see "Scaling") |
+| Upgrade | short downtime now; rolling upgrades possible later |
+| Code changes | small, in `database/` (see "Code changes") |
 
 ```
 deploy/k8s/
-├── base/                       Step 1
+├── base/
 │   ├── namespace.yaml
-│   ├── data-pvc.yaml           volume for qf.db, Let's Encrypt certificates and logs
-│   ├── deployment.yaml         QuickFeed: 1 replica, strategy Recreate, volume at /data
-│   └── service.yaml
-├── postgres/                   Step 2 (adds to base/)
+│   ├── data-pvc.yaml               volume for Let's Encrypt certificates and logs
+│   ├── deployment.yaml             QuickFeed: 1 replica, strategy Recreate, waits for PostgreSQL
+│   ├── service.yaml
 │   ├── postgres-statefulset.yaml   PostgreSQL 17 with its own volume
 │   ├── postgres-service.yaml       address postgres:5432, inside the cluster only
-│   ├── quickfeed-use-postgres.yaml sets QUICKFEED_DATABASE_URL on QuickFeed
 │   └── postgres.env.example        database name, user, password (copy to postgres.env)
 └── jobs/
-    └── migrate-sqlite-to-postgres.yaml  one-time copy of the data from step 1 to step 2
+    └── migrate-sqlite-to-postgres.yaml  one-time copy of a SQLite database (qf.db) into PostgreSQL
 ```
 
 ## Why the data survives
@@ -54,7 +53,7 @@ pod and outside the node:
    ```
 
    One should be marked `(default)`. If none is, write its name into
-   `storageClassName` in `base/data-pvc.yaml` and `postgres/postgres-statefulset.yaml`.
+   `storageClassName` in `base/data-pvc.yaml` and `base/postgres-statefulset.yaml`.
 3. The QuickFeed image is built and pushed to GHCR by `.github/workflows/image.yml`.
    Set its tag (the commit SHA) in `base/kustomization.yaml` and `jobs/kustomization.yaml`:
 
@@ -74,40 +73,12 @@ pod and outside the node:
 Exposing QuickFeed (Ingress / TLS passthrough, `qf-test.ux.uis.no`) is not
 part of this folder; it uses the `quickfeed` Service on ports 443 and 80.
 
-## Step 1: SQLite on a persistent volume
+## Deploy QuickFeed with PostgreSQL
 
 ```sh
-kubectl apply -k deploy/k8s/base
-kubectl -n quickfeed get pvc,pods
-```
-
-The PVC should be `Bound` and the pod `Running`. QuickFeed creates an empty
-database at `/data/qf.db` on first start.
-
-To start with the anonymized test database instead (only for testing):
-
-```sh
-POD=$(kubectl -n quickfeed get pod -l app.kubernetes.io/name=quickfeed -o name)
-kubectl -n quickfeed cp doc/dev/test.db ${POD#pod/}:/data/qf.db
-kubectl -n quickfeed rollout restart deploy/quickfeed
-```
-
-**Backups in step 1:** take a snapshot of the Cinder volume. Stop QuickFeed
-first so the file is not changed during the snapshot:
-
-```sh
-kubectl -n quickfeed scale deploy/quickfeed --replicas=0
-openstack volume list            # find the volume of PVC quickfeed-data (pvc-...)
-openstack volume snapshot create --volume <volume-id> --force quickfeed-$(date +%F)
-kubectl -n quickfeed scale deploy/quickfeed --replicas=1
-```
-
-## Step 2: PostgreSQL in the cluster
-
-```sh
-cp deploy/k8s/postgres/postgres.env.example deploy/k8s/postgres/postgres.env
+cp deploy/k8s/base/postgres.env.example deploy/k8s/base/postgres.env
 # edit postgres.env: set POSTGRES_PASSWORD (letters and digits only), e.g. openssl rand -hex 24
-kubectl apply -k deploy/k8s/postgres
+kubectl apply -k deploy/k8s/base
 kubectl -n quickfeed get pods
 ```
 
@@ -118,14 +89,14 @@ and the logs.
 
 ### Moving from SQLite to PostgreSQL (keeping the data)
 
-If step 1 already has real data, copy it once:
+If there is SQLite data to keep (`/data/qf.db` on the volume `quickfeed-data`), copy it once:
 
 ```sh
 # 1. Stop QuickFeed, so nothing writes to qf.db during the copy
 kubectl -n quickfeed scale deploy/quickfeed --replicas=0
 
 # 2. Start PostgreSQL (QuickFeed stays stopped)
-kubectl apply -k deploy/k8s/postgres
+kubectl apply -k deploy/k8s/base
 kubectl -n quickfeed scale deploy/quickfeed --replicas=0
 kubectl -n quickfeed rollout status statefulset/postgres
 
@@ -136,8 +107,7 @@ kubectl -n quickfeed logs -f job/migrate-sqlite-to-postgres
 
 The job prints the number of rows in each table in both databases and fails
 if any count differs. It refuses to copy into a database that already has
-data. `qf.db` is mounted read-only and is not changed, so going back to step 1
-is always possible.
+data. `qf.db` is mounted read-only and is not changed.
 
 ```sh
 # 4. Start QuickFeed on PostgreSQL
@@ -170,7 +140,7 @@ kubectl uncordon <node>
 # After each step, the data from step 1 is still there.
 ```
 
-## Code changes (for step 2)
+## Code changes
 
 QuickFeed was written for SQLite. Hein expected switching to PostgreSQL to be
 "mostly a one-line change". The driver change is small, but running QuickFeed's
