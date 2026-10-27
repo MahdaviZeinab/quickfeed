@@ -54,7 +54,7 @@ pod and outside the node:
    ```
 
    One should be marked `(default)`. If none is, write its name into
-   `storageClassName` in `base/data-pvc.yaml` and `postgres/postgres-statefulset.yaml`.
+   `storageClassName` in `base/data-pvc.yaml` and `base/postgres-statefulset.yaml`.
 3. The QuickFeed image is built and pushed to GHCR by `.github/workflows/image.yml`.
    Set its tag (the commit SHA) in `base/kustomization.yaml` and `jobs/kustomization.yaml`:
 
@@ -105,9 +105,9 @@ kubectl -n quickfeed scale deploy/quickfeed --replicas=1
 ## Step 2: PostgreSQL in the cluster
 
 ```sh
-cp deploy/k8s/postgres/postgres.env.example deploy/k8s/postgres/postgres.env
+cp deploy/k8s/base/postgres.env.example deploy/k8s/base/postgres.env
 # edit postgres.env: set POSTGRES_PASSWORD (letters and digits only), e.g. openssl rand -hex 24
-kubectl apply -k deploy/k8s/postgres
+kubectl apply -k deploy/k8s/base
 kubectl -n quickfeed get pods
 ```
 
@@ -125,7 +125,7 @@ If step 1 already has real data, copy it once:
 kubectl -n quickfeed scale deploy/quickfeed --replicas=0
 
 # 2. Start PostgreSQL (QuickFeed stays stopped)
-kubectl apply -k deploy/k8s/postgres
+kubectl apply -k deploy/k8s/base
 kubectl -n quickfeed scale deploy/quickfeed --replicas=0
 kubectl -n quickfeed rollout status statefulset/postgres
 
