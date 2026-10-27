@@ -73,34 +73,6 @@ pod and outside the node:
 Exposing QuickFeed (Ingress / TLS passthrough, `qf-test.ux.uis.no`) is not
 part of this folder; it uses the `quickfeed` Service on ports 443 and 80.
 
-## Step 1: SQLite on a persistent volume
-
-```sh
-kubectl apply -k deploy/k8s/base
-kubectl -n quickfeed get pvc,pods
-```
-
-The PVC should be `Bound` and the pod `Running`. QuickFeed creates an empty
-database at `/data/qf.db` on first start.
-
-To start with the anonymized test database instead (only for testing):
-
-```sh
-POD=$(kubectl -n quickfeed get pod -l app.kubernetes.io/name=quickfeed -o name)
-kubectl -n quickfeed cp doc/dev/test.db ${POD#pod/}:/data/qf.db
-kubectl -n quickfeed rollout restart deploy/quickfeed
-```
-
-**Backups in step 1:** take a snapshot of the Cinder volume. Stop QuickFeed
-first so the file is not changed during the snapshot:
-
-```sh
-kubectl -n quickfeed scale deploy/quickfeed --replicas=0
-openstack volume list            # find the volume of PVC quickfeed-data (pvc-...)
-openstack volume snapshot create --volume <volume-id> --force quickfeed-$(date +%F)
-kubectl -n quickfeed scale deploy/quickfeed --replicas=1
-```
-
 ## Step 2: PostgreSQL in the cluster
 
 ```sh
