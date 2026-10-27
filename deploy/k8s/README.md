@@ -73,7 +73,7 @@ pod and outside the node:
 Exposing QuickFeed (Ingress / TLS passthrough, `qf-test.ux.uis.no`) is not
 part of this folder; it uses the `quickfeed` Service on ports 443 and 80.
 
-## Step 2: PostgreSQL in the cluster
+## Deploy QuickFeed with PostgreSQL
 
 ```sh
 cp deploy/k8s/base/postgres.env.example deploy/k8s/base/postgres.env
@@ -89,7 +89,7 @@ and the logs.
 
 ### Moving from SQLite to PostgreSQL (keeping the data)
 
-If step 1 already has real data, copy it once:
+If there is SQLite data to keep (`/data/qf.db` on the volume `quickfeed-data`), copy it once:
 
 ```sh
 # 1. Stop QuickFeed, so nothing writes to qf.db during the copy
@@ -107,8 +107,7 @@ kubectl -n quickfeed logs -f job/migrate-sqlite-to-postgres
 
 The job prints the number of rows in each table in both databases and fails
 if any count differs. It refuses to copy into a database that already has
-data. `qf.db` is mounted read-only and is not changed, so going back to step 1
-is always possible.
+data. `qf.db` is mounted read-only and is not changed.
 
 ```sh
 # 4. Start QuickFeed on PostgreSQL
@@ -141,7 +140,7 @@ kubectl uncordon <node>
 # After each step, the data from step 1 is still there.
 ```
 
-## Code changes (for step 2)
+## Code changes
 
 QuickFeed was written for SQLite. Hein expected switching to PostgreSQL to be
 "mostly a one-line change". The driver change is small, but running QuickFeed's
