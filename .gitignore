@@ -47,4 +47,4 @@ patch/go.pb.go
 go.work.sum
 
 # Kubernetes database password (copy postgres.env.example)
-deploy/k8s/postgres/postgres.env
+deploy/k8s/base/postgres.env
