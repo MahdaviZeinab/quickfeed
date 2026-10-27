@@ -76,6 +76,15 @@ QuickFeed is exposed through Traefik by `base/ingressroutetcp.yaml`.
 QuickFeed gets its own Let's Encrypt certificate, so Traefik passes TLS
 through on port 443 and forwards port 80 for certificate challenges and
 redirects. The host name there must match `DOMAIN` in `quickfeed-env`.
+This requires Traefik v2.10 or newer with the Kubernetes CRD provider enabled,
+and entry points named `websecure` (port 443) and `web` (port 80).
+Check that the CRD exists with `kubectl get crd ingressroutetcps.traefik.io`.
+After deploying, verify passthrough: the certificate issuer must be Let's Encrypt,
+not Traefik's default certificate:
+
+```sh
+openssl s_client -connect qf-test.ux.uis.no:443 -servername qf-test.ux.uis.no </dev/null | grep issuer
+```
 
 ## Step 1: SQLite on a persistent volume
 
