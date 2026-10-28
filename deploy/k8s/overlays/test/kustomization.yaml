@@ -8,9 +8,9 @@ kind: Kustomization
 namespace: quickfeed
 
 resources:
-  - ../../base
+- ../../base
 
 images:
-  - name: quickfeed
-    newName: ghcr.io/mahdavizeinab/quickfeed
-    newTag: dba3210ac9c47bbb925e4b3e6fc8e9ad9f06f695
+- name: quickfeed
+  newName: ghcr.io/mahdavizeinab/quickfeed
+  newTag: 3a4bf84faea2e012761cf641b832accaef57d875
