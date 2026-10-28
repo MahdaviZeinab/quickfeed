@@ -64,7 +64,7 @@ jobs:
           tags: ghcr.io/mahdavizeinab/quickfeed:${{ github.sha }}
 
   # Runs only after the image is pushed, and only on master (not on PRs).
-  # Writes the new image tag into deploy/k8s/overlays/dev/kustomization.yaml and commits it.
+  # Writes the new image tag into deploy/k8s/overlays/test/kustomization.yaml and commits it.
   update-tag:
     needs: [image]
     if: github.event_name == 'push'
@@ -78,7 +78,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Set the new image tag
-        working-directory: deploy/k8s/overlays/dev
+        working-directory: deploy/k8s/overlays/test
         run: kustomize edit set image quickfeed=ghcr.io/mahdavizeinab/quickfeed:${{ github.sha }}
       - name: Commit and push the new tag
         run: |
@@ -88,6 +88,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "deploy(dev): set quickfeed image to ${{ github.sha }} [skip ci]"
+          git commit -am "deploy(test): set quickfeed image to ${{ github.sha }} [skip ci]"
           git pull --rebase origin master
           git push origin HEAD:master

@@ -1,8 +1,7 @@
-# QuickFeed with its PostgreSQL database: the parts that are the same in dev and prod.
+# QuickFeed with its PostgreSQL database: the parts that are the same in every environment.
 #
-# Do not apply this folder directly. Use an overlay, which adds the namespace and the image tag:
-#   deploy/k8s/overlays/dev    (Argo CD: deploy/argocd/quickfeed-dev.yaml)
-#   deploy/k8s/overlays/prod   (Argo CD: deploy/argocd/quickfeed-prod.yaml)
+# Do not apply this folder directly. Use the overlay, which adds the namespace and the image tag:
+#   deploy/k8s/overlays/test   (Argo CD: deploy/argocd/quickfeed-test.yaml)
 #
 # The Secrets quickfeed-env, quickfeed-app-key and postgres are not in git.
 # Create them by hand in each namespace; see deploy/k8s/README.md.
