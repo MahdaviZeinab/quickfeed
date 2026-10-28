@@ -9,7 +9,7 @@ SQLite database (`qf.db`) into PostgreSQL (see "Moving from SQLite to PostgreSQL
 
 | | PostgreSQL in the cluster |
 |---|---|
-| Folder | `base/` |
+| Folder | `base/` (shared) + `overlays/test/` (namespace `quickfeed`, image tag) |
 | Where the data is | a PostgreSQL server (StatefulSet) with its own persistent volume |
 | QuickFeed pods | 1 now; more is possible later (see "Scaling") |
 | Upgrade | short downtime now; rolling upgrades possible later |
@@ -17,8 +17,10 @@ SQLite database (`qf.db`) into PostgreSQL (see "Moving from SQLite to PostgreSQL
 
 ```
 deploy/k8s/
+├── overlays/
+│   └── test/kustomization.yaml     qf-test.ux.uis.no: namespace quickfeed + image tag (set by image.yml)
 ├── base/
-│   ├── namespace.yaml
+│   ├── kustomization.yaml          shared parts; no namespace, no tag, no Secrets
 │   ├── data-pvc.yaml               volume for Let's Encrypt certificates and logs
 │   ├── deployment.yaml             QuickFeed: 1 replica, strategy Recreate, waits for PostgreSQL
 │   ├── service.yaml
@@ -55,11 +57,9 @@ pod and outside the node:
    One should be marked `(default)`. If none is, write its name into
    `storageClassName` in `base/data-pvc.yaml` and `base/postgres-statefulset.yaml`.
 3. The QuickFeed image is built and pushed to GHCR by `.github/workflows/image.yml`.
-   Set its tag (the commit SHA) in `base/kustomization.yaml` and `jobs/kustomization.yaml`:
-
-   ```sh
-   (cd deploy/k8s/base && kustomize edit set image quickfeed=ghcr.io/mahdavizeinab/quickfeed:<commit-sha>)
-   ```
+   After every merge to `master`, its `update-tag` job writes the new tag (the commit SHA)
+   into `overlays/test/kustomization.yaml` and commits it. You do not set it by hand.
+   (For the one-time Job, set the same tag in `jobs/kustomization.yaml`.)
 
    If the GHCR package is private, the cluster also needs an image pull secret.
 4. QuickFeed's own configuration (GitHub App, `DOMAIN`, secrets; see
@@ -78,7 +78,8 @@ part of this folder; it uses the `quickfeed` Service on ports 443 and 80.
 ```sh
 cp deploy/k8s/base/postgres.env.example deploy/k8s/base/postgres.env
 # edit postgres.env: set POSTGRES_PASSWORD (letters and digits only), e.g. openssl rand -hex 24
-kubectl apply -k deploy/k8s/base
+kubectl -n quickfeed create secret generic postgres --from-env-file=deploy/k8s/base/postgres.env
+kubectl apply -k deploy/k8s/overlays/test
 kubectl -n quickfeed get pods
 ```
 
@@ -96,7 +97,7 @@ If there is SQLite data to keep (`/data/qf.db` on the volume `quickfeed-data`), 
 kubectl -n quickfeed scale deploy/quickfeed --replicas=0
 
 # 2. Start PostgreSQL (QuickFeed stays stopped)
-kubectl apply -k deploy/k8s/base
+kubectl apply -k deploy/k8s/overlays/test
 kubectl -n quickfeed scale deploy/quickfeed --replicas=0
 kubectl -n quickfeed rollout status statefulset/postgres
 
