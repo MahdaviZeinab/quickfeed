@@ -24,7 +24,7 @@ deploy/k8s/
 │   ├── data-pvc.yaml               volume for Let's Encrypt certificates and logs
 │   ├── deployment.yaml             QuickFeed: 1 replica, strategy Recreate, waits for PostgreSQL
 │   ├── service.yaml
-│   ├── ingressroutetcp.yaml        Traefik routes for qf-test.ux.uis.no (TLS passthrough on 443, HTTP on 80)
+│   ├── ingressroute.yaml           Traefik routes for qf-test.ux.uis.no (TLS passthrough on 443, HTTP on 80)
 │   ├── postgres-statefulset.yaml   PostgreSQL 17 with its own volume
 │   ├── postgres-service.yaml       address postgres:5432, inside the cluster only
 │   └── postgres.env.example        database name, user, password (copy to postgres.env)
@@ -71,7 +71,7 @@ pod and outside the node:
    kubectl -n quickfeed create secret generic quickfeed-env --from-env-file=.env
    ```
 
-QuickFeed is exposed through Traefik by `base/ingressroutetcp.yaml`.
+QuickFeed is exposed through Traefik by `base/ingressroute.yaml`.
 QuickFeed gets its own Let's Encrypt certificate, so Traefik passes TLS
 through on port 443 and forwards port 80 for certificate challenges and
 redirects. The host name there must match `DOMAIN` in `quickfeed-env`.

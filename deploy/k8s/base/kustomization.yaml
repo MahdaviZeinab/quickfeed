@@ -12,6 +12,6 @@ resources:
   - data-pvc.yaml
   - deployment.yaml
   - service.yaml
-  - ingressroutetcp.yaml
+  - ingressroute.yaml
   - postgres-statefulset.yaml
   - postgres-service.yaml
