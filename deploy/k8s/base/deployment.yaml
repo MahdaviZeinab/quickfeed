@@ -5,7 +5,7 @@ metadata:
   labels:
     app.kubernetes.io/name: quickfeed
 spec:
-  # Exactly one QuickFeed pod: the SQLite file and the ReadWriteOnce volume
+  # Exactly one QuickFeed pod: the ReadWriteOnce volume (certificates, logs)
   # can only be used by one pod at a time.
   replicas: 1
   strategy:
@@ -36,13 +36,16 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+        # Wait until the database accepts connections before starting QuickFeed.
+        # "-U postgres" is needed: this pod runs as uid 10001, which has no user
+        # name in the postgres image, so pg_isready gives up without it ("no attempt").
+        # pg_isready does not log in, so any user name works here.
+        - name: wait-for-postgres
+          image: postgres:17.6
+          command: ["sh", "-c", "until pg_isready -h postgres -p 5432 -U postgres; do echo waiting for postgres; sleep 2; done"]
       containers:
         - name: quickfeed
           image: quickfeed
-          args:
-            # The SQLite database file lives on the persistent volume.
-            # (Ignored when QUICKFEED_DATABASE_URL is set; see deploy/k8s/postgres.)
-            - -database.file=/data/qf.db
           envFrom:
             # QuickFeed configuration (DOMAIN, QUICKFEED_APP_ID, secrets, ...),
             # see .env-template. Create it with:
@@ -54,6 +57,19 @@ spec:
             # (see the volume "app-key" below).
             - name: QUICKFEED_APP_KEY
               value: /secrets/app-key.pem
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef: { name: postgres, key: POSTGRES_USER }
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: postgres, key: POSTGRES_PASSWORD }
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef: { name: postgres, key: POSTGRES_DB }
+            # QuickFeed uses the PostgreSQL database at this address.
+            # Traffic stays inside the cluster network, so TLS is not used here.
+            - name: QUICKFEED_DATABASE_URL
+              value: postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)?sslmode=disable
           ports:
             - name: https
               containerPort: 443

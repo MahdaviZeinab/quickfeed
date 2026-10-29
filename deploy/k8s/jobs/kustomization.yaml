@@ -11,7 +11,7 @@ resources:
   - migrate-sqlite-to-postgres.yaml
 
 images:
-  # Use the same image tag as in ../base/kustomization.yaml
+  # Use the same image tag as in ../overlays/test/kustomization.yaml
   - name: quickfeed
     newName: ghcr.io/mahdavizeinab/quickfeed
     newTag: CHANGE-ME-TO-COMMIT-SHA

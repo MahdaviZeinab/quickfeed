@@ -1,0 +1,16 @@
+# QuickFeed test (qf-test.ux.uis.no): everything from ../../base, in the namespace quickfeed.
+#
+# Argo CD watches this folder (see deploy/argocd/quickfeed-test.yaml).
+# The update-tag job in .github/workflows/image.yml sets newTag after every merge to master.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: quickfeed
+
+resources:
+- ../../base
+
+images:
+- name: quickfeed
+  newName: ghcr.io/mahdavizeinab/quickfeed
+  newTag: 3a4bf84faea2e012761cf641b832accaef57d875

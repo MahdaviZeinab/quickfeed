@@ -1,23 +1,17 @@
-# Step 1: QuickFeed with its SQLite database on a persistent volume.
+# QuickFeed with its PostgreSQL database: the parts that are the same in every environment.
 #
-#   kubectl apply -k deploy/k8s/base
+# Do not apply this folder directly. Use the overlay, which adds the namespace and the image tag:
+#   deploy/k8s/overlays/test   (Argo CD: deploy/argocd/quickfeed-test.yaml)
 #
-# See deploy/k8s/README.md.
+# The Secrets quickfeed-env, quickfeed-app-key and postgres are not in git.
+# Create them by hand in each namespace; see deploy/k8s/README.md.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: quickfeed
-
 resources:
-  - namespace.yaml
   - data-pvc.yaml
   - deployment.yaml
   - service.yaml
   - ingressroutetcp.yaml
-
-images:
-  # Set the tag to the commit SHA of the image built by .github/workflows/image.yml:
-  #   cd deploy/k8s/base && kustomize edit set image quickfeed=ghcr.io/mahdavizeinab/quickfeed:<sha>
-  - name: quickfeed
-    newName: ghcr.io/mahdavizeinab/quickfeed
-    newTag: dba3210ac9c47bbb925e4b3e6fc8e9ad9f06f695
+  - postgres-statefulset.yaml
+  - postgres-service.yaml
