@@ -1,0 +1,42 @@
+# Exposes QuickFeed through Traefik at https://qf-test.ux.uis.no.
+#
+# QuickFeed terminates TLS itself, with a Let's Encrypt certificate from
+# autocert (cached on the data volume). Traefik must therefore pass the TLS
+# connection through unchanged and route it by the SNI host name only.
+# Change the host name here and DOMAIN in the quickfeed-env Secret together.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: quickfeed-https
+  labels:
+    app.kubernetes.io/name: quickfeed
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: HostSNI(`qf-test.ux.uis.no`)
+      services:
+        - name: quickfeed
+          port: 443
+  tls:
+    passthrough: true
+---
+# Plain HTTP (port 80) goes to QuickFeed's redirect server, which answers
+# Let's Encrypt HTTP-01 challenges and redirects everything else to HTTPS.
+# This is an HTTP route, not a TCP route: a TCP route on the "web" entry point
+# cannot match by host name and would take port 80 traffic for every host.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: quickfeed-http
+  labels:
+    app.kubernetes.io/name: quickfeed
+spec:
+  entryPoints:
+    - web
+  routes:
+    - kind: Rule
+      match: Host(`qf-test.ux.uis.no`)
+      services:
+        - name: quickfeed
+          port: 80
