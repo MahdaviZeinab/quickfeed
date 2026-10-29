@@ -4,8 +4,9 @@
 # the namespace quickfeed. The update-tag job in .github/workflows/image.yml
 # changes the image tag there after every merge.
 #
-# Sync is manual for now: start each sync by hand in the Argo CD UI or with
-#   argocd app sync quickfeed-test
+# Sync is automatic: Argo CD applies every change on master by itself.
+# prune: deletes objects that were removed from git (never the PVC quickfeed-data).
+# selfHeal: undoes changes made by hand with kubectl.
 #
 # Apply once, after Argo CD is installed in the namespace argocd:
 #   kubectl apply -f deploy/argocd/quickfeed-test.yaml
@@ -23,3 +24,7 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: quickfeed
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
