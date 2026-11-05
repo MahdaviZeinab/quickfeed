@@ -13,4 +13,4 @@ resources:
 images:
 - name: quickfeed
   newName: ghcr.io/mahdavizeinab/quickfeed
-  newTag: 68aa513e14f9239c149f65f5ffebfe8d5d1ed4eb
+  newTag: 230a6548aa8654df2d75349ca9f70b6508470705
