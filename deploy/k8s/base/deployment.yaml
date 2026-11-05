@@ -5,13 +5,17 @@ metadata:
   labels:
     app.kubernetes.io/name: quickfeed
 spec:
-  # Exactly one QuickFeed pod: the ReadWriteOnce volume (certificates, logs)
-  # can only be used by one pod at a time.
+  # One QuickFeed pod normally (two for a moment during a deploy). The
+  # ReadWriteOnce volume (certificates, logs) can only be attached to one node,
+  # so both pods must run on the same node (see affinity below).
   replicas: 1
   strategy:
-    # Stop the old pod before starting the new one. With RollingUpdate the new
-    # pod would wait forever for the volume, which the old pod still holds.
-    type: Recreate
+    # Start the new pod before stopping the old one, so QuickFeed stays up during a deploy.
+    # The ReadWriteOnce volume works for both pods only on the same node (see affinity below).
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1   # one extra pod may start while the old one still runs
+      maxUnavailable: 0 # never stop the old pod before the new one is ready
   selector:
     matchLabels:
       app.kubernetes.io/name: quickfeed
