@@ -12,7 +12,7 @@ SQLite database (`qf.db`) into PostgreSQL (see "Moving from SQLite to PostgreSQL
 | Folder | `base/` (shared) + `overlays/test/` (namespace `quickfeed`, image tag) |
 | Where the data is | a PostgreSQL server (StatefulSet) with its own persistent volume |
 | QuickFeed pods | 1 now; more is possible later (see "Scaling") |
-| Upgrade | short downtime now; rolling upgrades possible later |
+| Upgrade | rolling update: the new pod is ready before the old one stops |
 | Code changes | small, in `database/` (see "Code changes") |
 
 ```
@@ -22,7 +22,7 @@ deploy/k8s/
 ├── base/
 │   ├── kustomization.yaml          shared parts; no namespace, no tag, no Secrets
 │   ├── data-pvc.yaml               volume for Let's Encrypt certificates and logs
-│   ├── deployment.yaml             QuickFeed: 1 replica, strategy Recreate, waits for PostgreSQL
+│   ├── deployment.yaml             QuickFeed: 1 replica, strategy RollingUpdate, waits for PostgreSQL
 │   ├── service.yaml
 │   ├── ingressroute.yaml           Traefik routes for qf-test.ux.uis.no (TLS passthrough on 443, HTTP on 80)
 │   ├── postgres-statefulset.yaml   PostgreSQL 17 with its own volume
@@ -196,11 +196,27 @@ checks every row of every table after the copy.
 
 PostgreSQL removes the database as the reason for running only one pod: many
 pods can use one PostgreSQL server, but not one SQLite file. For now QuickFeed
-still runs as one pod with `strategy: Recreate`, because:
+still runs as one pod, because:
 
-- the `/data` volume (certificates, logs) is ReadWriteOnce;
+- the `/data` volume (certificates, logs) is ReadWriteOnce: it can be attached
+  to only one node at a time;
 - QuickFeed keeps some state in memory and runs the student tests itself
   (Docker), which would need to be shared or moved before running several
   copies.
 
 These are not database questions and are left for later.
+
+### Deploying without downtime
+
+The Deployment uses `strategy: RollingUpdate` with `maxSurge: 1` and
+`maxUnavailable: 0`: Kubernetes starts the new pod first, waits until its
+readiness probe passes, and only then stops the old pod. The old pod keeps
+serving while the new one pulls the image and waits for PostgreSQL (about
+3.5 minutes on the UiS cluster). With the earlier `strategy: Recreate`,
+QuickFeed was down for that time on every deploy.
+
+For a moment there are two QuickFeed pods. Because the `/data` volume is
+ReadWriteOnce, both must run on the same node; otherwise the new pod waits for
+the volume and the rollout stops (the old pod keeps serving). So far both pods
+have always started on `qf-worker-1`; a rule that guarantees this is still
+being decided (issue #46).
