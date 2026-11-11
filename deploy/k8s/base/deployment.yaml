@@ -32,6 +32,15 @@ spec:
         runAsNonRoot: true
         fsGroup: 10001
         fsGroupChangePolicy: OnRootMismatch
+      # Keep the new pod on the same node as the old one during a deploy,
+      # because the ReadWriteOnce volume can only attach to one node.
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: quickfeed
+              topologyKey: kubernetes.io/hostname
       initContainers:
         # Create the log directory on the volume before QuickFeed starts.
         - name: prepare-data
